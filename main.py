@@ -3,6 +3,7 @@ from cobra.mit.access import MoDirectory
 from cobra.mit.session import LoginSession
 from cobra.mit.request import ConfigRequest
 from cobra.model.fv import Tenant, Ctx, BD, RsCtx, RsBDToOut, Ap, AEPg, RsBd, RsDomAtt, RsPathAtt
+from cobra.model.vmm import SecP
 from cobra.internal.codec.jsoncodec import toJSONStr
 import requests.packages.urllib3
 requests.packages.urllib3.disable_warnings()
@@ -127,11 +128,27 @@ def create_endpoint_groups(delete=''):
             if pd.isnull(row['Physical Domain']) == False:
                 fvRsDomAtt = RsDomAtt(fvAEPg, tDn='uni/phys-%s' % row['Physical Domain'])
             if pd.isnull(row['Static Path']) == False:
-                fvRsPathAtt = RsPathAtt(fvAEPg, tDn=row['Static Path'], encap=row['VLAN Encap'])
+                fvRsPathAtt = RsPathAtt(fvAEPg, tDn=row['Static Path'], encap='vlan-%s' % row['VLAN Encap'])
+            if pd.isnull(row['Associated VMM1']) == False:
+                fvRsDomAtt1 = RsDomAtt(fvAEPg, tDn='uni/vmmp-VMware/dom-' + row['Associated VMM1'],
+                                                      primaryEncap=u'unknown',
+                                                      classPref=u'encap', delimiter=u'', instrImedcy=u'lazy',
+                                                      encap=u'unknown', encapMode=u'auto', resImedcy=u'immediate')
+                vmmSecP = SecP(fvRsDomAtt1, ownerKey=u'', name=u'', descr=u'',
+                                               forgedTransmits=u'reject',
+                                               ownerTag=u'', allowPromiscuous=u'reject', macChanges=u'reject')
+            if pd.isnull(row['Associated VMM2']) == False:
+                fvRsDomAtt2 = RsDomAtt(fvAEPg, tDn='uni/vmmp-VMware/dom-' + row['Associated VMM2'],
+                                                      primaryEncap=u'unknown',
+                                                      classPref=u'encap', delimiter=u'', instrImedcy=u'lazy',
+                                                      encap=u'unknown', encapMode=u'auto', resImedcy=u'immediate')
+                vmmSecP2 = SecP(fvRsDomAtt2, ownerKey=u'', name=u'', descr=u'',
+                                                forgedTransmits=u'reject',
+                                                ownerTag=u'', allowPromiscuous=u'reject', macChanges=u'reject')
         cfgRequest = ConfigRequest()
-        cfgRequest.addMo(fvAEPg)
+        cfgRequest.addMo(fvAp)
         logon.commit(cfgRequest)
-        json_data = toJSONStr(fvAEPg, prettyPrint=True)
+        json_data = toJSONStr(fvAp, prettyPrint=True)
         file.write('\n-------------------------------------------------------------------\n')
         file.write(json_data)
     file.close()
