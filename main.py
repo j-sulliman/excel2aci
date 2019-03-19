@@ -19,7 +19,8 @@ def create_vlans_from_nxos(file,  cmd_string="vlan "):
     vlan_id = ''
     prev_line = ''
     epgs_bds = {}
-    subnets = {}
+    subnets_vrfs = {}
+    vrf_lst = []
     for line in config_file:
         if line.startswith(cmd_string) and len(line) < 11:
             prev_line = line
@@ -32,14 +33,23 @@ def create_vlans_from_nxos(file,  cmd_string="vlan "):
             epgs_bds[vlan_id].append(vlan_name)
         elif line.startswith("interface Vlan"):
             subnet_lst = line.split('interface Vlan')
-            subnets[subnet_lst[1].strip()] = []
+            subnet_cleaned = subnet_lst[1].strip()
+            subnets_vrfs[subnet_cleaned] = {}
             prev_line = line
-        elif line.startswith("  ip address") and prev_line.startswith('interface Vlan'):
+        elif line.startswith("  vrf member") and prev_line.startswith('interface Vlan'):
+            vrf_lst = line.split('  vrf member ')
+            subnets_vrfs[subnet_cleaned] = {"vrf": vrf_lst[1].strip()}
+        elif line.startswith("  ip address") and prev_line.startswith('interface Vlan') and len(vrf_lst) > 0:
             ip_lst = line.split('  ip address ')
-            subnets[subnet_lst[1].strip()] = ip_lst[1].strip()
-            #epgs_bds[vlan_id].append(subnet_name)
-    print(subnets)
-    return epgs_bds
+            subnets_vrfs[subnet_cleaned] = {
+                "vrf": vrf_lst[1].strip(),
+                "ip": ip_lst[1].strip()}
+        elif line.startswith("  ip address") and prev_line.startswith('interface Vlan') and len(vrf_lst) == 0:
+            ip_lst = line.split('  ip address ')
+            subnets_vrfs[subnet_cleaned] = {
+                "vrf": "DEFAULT",
+                "ip": ip_lst[1].strip()}
+    return epgs_bds, subnets_vrfs
 
 def apic_logon():
     apicUrl = 'https://10.37.1.11'
@@ -189,8 +199,8 @@ def create_endpoint_groups(delete=''):
 
 
 config_file = read_nxos_config_file()
-epgs_bds = create_vlans_from_nxos(config_file)
-print(epgs_bds)
+epgs_bds, bd_subnets = create_vlans_from_nxos(config_file)
+print(bd_subnets)
 #create_tenants()
 #create_vrfs()
 #create_bridge_domains()
