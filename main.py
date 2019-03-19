@@ -9,9 +9,42 @@ import requests.packages.urllib3
 requests.packages.urllib3.disable_warnings()
 
 
+
+
+def read_nxos_config_file(filename="Configurations/SW-ATCA-93180-1-Configuration_0.1"):
+    config_file = open(filename, "r")
+    return config_file
+
+def create_vlans_from_nxos(file,  cmd_string="vlan "):
+    vlan_id = ''
+    prev_line = ''
+    epgs_bds = {}
+    subnets = {}
+    for line in config_file:
+        if line.startswith(cmd_string) and len(line) < 11:
+            prev_line = line
+            temp_line = line.split(" ")
+            vlan_id = temp_line[1].strip()
+            epgs_bds[vlan_id] = []
+        elif line.startswith("  name") and prev_line.startswith(cmd_string):
+            vlan_name_lst = line.split("  name")
+            vlan_name = vlan_name_lst[1].strip()
+            epgs_bds[vlan_id].append(vlan_name)
+        elif line.startswith("interface Vlan"):
+            subnet_lst = line.split('interface Vlan')
+            subnets[subnet_lst[1].strip()] = []
+            prev_line = line
+        elif line.startswith("  ip address") and prev_line.startswith('interface Vlan'):
+            ip_lst = line.split('  ip address ')
+            subnets[subnet_lst[1].strip()] = ip_lst[1].strip()
+            #epgs_bds[vlan_id].append(subnet_name)
+    print(subnets)
+    return epgs_bds
+
 def apic_logon():
-    apicUrl = 'https://192.168.2.79'
-    loginSession = LoginSession(apicUrl, 'admin', 'C1sc0123')
+    apicUrl = 'https://10.37.1.11'
+    loginSession = LoginSession(apicUrl, 'admin', 'dr1ft3r*')
+    moDir = MoDirectory(loginSession)
     moDir = MoDirectory(loginSession)
     moDir.login()
     # Use the connected moDir queries and configuration...
@@ -154,7 +187,11 @@ def create_endpoint_groups(delete=''):
     file.close()
 
 
-create_tenants()
-create_vrfs()
-create_bridge_domains()
-create_endpoint_groups()
+
+config_file = read_nxos_config_file()
+epgs_bds = create_vlans_from_nxos(config_file)
+print(epgs_bds)
+#create_tenants()
+#create_vrfs()
+#create_bridge_domains()
+#create_endpoint_groups()
